@@ -1,5 +1,4 @@
 extern crate getopts;
-extern crate std;
 
 use std::default::Default;
 use std::os;

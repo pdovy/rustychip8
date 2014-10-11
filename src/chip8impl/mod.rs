@@ -4,6 +4,7 @@ use std::default::Default;
 use std::slice::bytes;
 use std::io::File;
 use std::rand;
+use std::io::fs::PathExtensions;
 
 #[cfg(test)]
 mod tests;
@@ -26,12 +27,12 @@ static fontset : [u8, ..80] =
      0xF0, 0x80, 0xF0, 0x80, 0xF0,  // E
      0xF0, 0x80, 0xF0, 0x80, 0x80]; // F
 
-static STACK_SIZE:     uint = 16;
-static MEMORY_SIZE:    uint = 4096;
-static REGISTER_COUNT: uint = 16;
-static SCREEN_WIDTH:   uint = 64;
-static SCREEN_HEIGHT:  uint = 32;
-static KEY_COUNT:      uint = 16;
+const STACK_SIZE:     uint = 16;
+const MEMORY_SIZE:    uint = 4096;
+const REGISTER_COUNT: uint = 16;
+const SCREEN_WIDTH:   uint = 64;
+const SCREEN_HEIGHT:  uint = 32;
+const KEY_COUNT:      uint = 16;
 
 pub struct Chip8 {
     pc          : u16,
