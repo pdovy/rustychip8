@@ -142,7 +142,43 @@ impl Chip8 {
 impl Chip8 {
 
     fn handle_keypress(&mut self, key: sdl::event::Key) {
-        
+        /*
+        Keypad                   Keyboard
+        +-+-+-+-+                +-+-+-+-+
+        |1|2|3|C|                |1|2|3|4|
+        +-+-+-+-+                +-+-+-+-+
+        |4|5|6|D|                |Q|W|E|R|
+        +-+-+-+-+       =>       +-+-+-+-+
+        |7|8|9|E|                |A|S|D|F|
+        +-+-+-+-+                +-+-+-+-+
+        |A|0|B|F|                |Z|X|C|V|
+        +-+-+-+-+                +-+-+-+-+
+        */
+
+        let mappedval = match key {
+            sdl::event::Num1Key => Some(0x1),
+            sdl::event::Num2Key => Some(0x2),
+            sdl::event::Num3Key => Some(0x3),
+            sdl::event::Num4Key => Some(0xC),
+            sdl::event::QKey    => Some(0x4),
+            sdl::event::WKey    => Some(0x5),
+            sdl::event::EKey    => Some(0x6),
+            sdl::event::RKey    => Some(0xD),
+            sdl::event::AKey    => Some(0x7),
+            sdl::event::SKey    => Some(0x8),
+            sdl::event::DKey    => Some(0x9),
+            sdl::event::FKey    => Some(0xE),
+            sdl::event::ZKey    => Some(0xA),
+            sdl::event::XKey    => Some(0x0),
+            sdl::event::CKey    => Some(0xB),
+            sdl::event::VKey    => Some(0xF),
+            _ => None
+        };
+
+        match mappedval {
+            Some(k) => self.key[k] = 1,
+            None => {}
+        }
     }
 
     fn draw_screen(&mut self, screen: &mut sdl::video::Surface) {
