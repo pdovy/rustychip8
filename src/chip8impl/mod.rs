@@ -9,7 +9,16 @@ use std::io::fs::PathExtensions;
 #[cfg(test)]
 mod tests;
 
-static fontset : [u8, ..80] =
+const STACK_SIZE:      uint = 16;
+const MEMORY_SIZE:     uint = 4096;
+const REGISTER_COUNT:  uint = 16;
+const SCREEN_WIDTH:    uint = 64;
+const SCREEN_HEIGHT:   uint = 32;
+const KEY_COUNT:       uint = 16;
+const FONTSET_SIZE:    uint = 80;
+const FONT_DIGIT_SIZE: u16  = 5;
+
+static fontset : [u8, ..FONTSET_SIZE] =
     [0xF0, 0x90, 0x90, 0x90, 0xF0,  // 0
      0x20, 0x60, 0x20, 0x20, 0x70,  // 1
      0xF0, 0x10, 0xF0, 0x80, 0xF0,  // 2
@@ -27,13 +36,6 @@ static fontset : [u8, ..80] =
      0xF0, 0x80, 0xF0, 0x80, 0xF0,  // E
      0xF0, 0x80, 0xF0, 0x80, 0x80]; // F
 
-const STACK_SIZE:     uint = 16;
-const MEMORY_SIZE:    uint = 4096;
-const REGISTER_COUNT: uint = 16;
-const SCREEN_WIDTH:   uint = 64;
-const SCREEN_HEIGHT:  uint = 32;
-const KEY_COUNT:      uint = 16;
-
 pub struct Chip8 {
     pc          : u16,
     i           : u16,
@@ -42,7 +44,7 @@ pub struct Chip8 {
     sp          : u8,
     v           : [u8, ..REGISTER_COUNT],
     mem         : [u8, ..MEMORY_SIZE],
-    gfx         : [[u8, ..SCREEN_WIDTH], ..SCREEN_HEIGHT],
+    gfx         : [u8, ..SCREEN_WIDTH * SCREEN_HEIGHT],
     stack       : [u16, ..STACK_SIZE],
     key         : [u8, ..KEY_COUNT]
 }
@@ -57,18 +59,20 @@ impl Default for Chip8 {
             sp          : 0,
             v           : [0, ..REGISTER_COUNT],
             mem         : [0, ..MEMORY_SIZE],
-            gfx         : [[0, ..SCREEN_WIDTH], ..SCREEN_HEIGHT],
+            gfx         : [0, ..SCREEN_WIDTH * SCREEN_HEIGHT],
             stack       : [0, ..STACK_SIZE],
             key         : [0, ..KEY_COUNT]
         }
     }
 }
 
+// public Chip8 methods
 impl Chip8 {
 
-    pub fn initialize(& mut self) {
-        // load the font data into memory
-        self.mem.copy_from( fontset );
+    pub fn new() -> Chip8 {
+        let mut rv = Chip8 { ..Default::default() };
+        rv.mem.copy_from( fontset );
+        return rv;
     }
 
     pub fn load_program(& mut self, filename: &String) -> bool {
@@ -91,6 +95,27 @@ impl Chip8 {
             Err(e) => { false }
         };
     }
+
+    pub fn run(& mut self) {
+        while true {
+            let opcode = self.fetch_opcode();
+            self.decode_and_execute(opcode);
+
+            if self.delay_timer > 0 {
+                self.delay_timer -= 1;
+            }
+            if self.sound_timer > 0 {
+                if (self.sound_timer == 1) {
+                    // TODO emit beep
+                }
+                self.sound_timer -= 1;
+            }
+        }
+    }
+}
+
+// Chip8 internals
+impl Chip8 {
 
     fn fetch_opcode(&self) -> u16 {
         ( self.mem[ self.pc as uint ] as u16 << 8 ) |
@@ -120,30 +145,23 @@ impl Chip8 {
 
     // Instruction: Call subroutine
     fn execute_call(& mut self, dst: u16) {
-        // push current pc onto stack before moving to call location
-        self.stack[self.sp as uint] = self.pc;
-        self.sp += 1;
+        // TODO: a temporary should not be required here
+        //  this appears to be related to https://github.com/rust-lang/rust/issues/6268
+        let currpc = self.pc;
+        self.stack_push(currpc);
         self.pc = dst;
     }
 
     // Instruction: Skip next instruction if Vx == val
     fn execute_skipifeq(& mut self, vx: uint, val: u8) {
-        if self.v[vx] == val {
-            self.advance_pc(2);
-        }
-        else {
-            self.advance_pc(1);
-        }
+        let numinstr = if self.v[vx] == val { 2 } else { 1 };
+        self.advance_pc(numinstr);
     }
 
     // Instruction: Skip next instruction if Vx != val
     fn execute_skipifneq(& mut self, vx: uint, val: u8) {
-        if self.v[vx] != val {
-            self.advance_pc(2)
-        }
-        else {
-            self.advance_pc(1);
-        }
+        let numinstr = if self.v[vx] != val { 2 } else { 1 };
+        self.advance_pc(numinstr);
     }
 
     // Instruction: Vx = val
@@ -160,24 +178,24 @@ impl Chip8 {
 
     // Instruction: Skip next instruction if Vx == Vy
     fn execute_skipifeq_register(& mut self, vx: uint, vy: uint) {
-        if self.v[vx] == self.v[vy] {
-            self.advance_pc(2);
-        }
-        else {
-            self.advance_pc(1);
-        }
+        let numinstr = if self.v[vx] == self.v[vy] { 2 } else { 1 };
+        self.advance_pc(numinstr);
+    }
+
+    // Instruction: Skip next instruction if Vx != Vy
+    fn execute_skipifneq_register(& mut self, vx: uint, vy: uint) {
+        let numinstr = if self.v[vx] != self.v[vy] { 2 } else { 1 };
+        self.advance_pc(numinstr);
     }
 
     // Instruction: Clear Display
     fn execute_clearscreen(& mut self) {
-        // TODO
+        self.gfx = [0, ..SCREEN_WIDTH * SCREEN_HEIGHT];
     }
 
     // Instruction: Return from current call
     fn execute_return(& mut self) {
-        assert!(self.sp > 0);
-        self.pc = self.stack[(self.sp - 1) as uint];
-        self.sp -= 1;
+        self.pc = self.stack_pop();
     }
 
     // Instruction: I = val
@@ -197,9 +215,29 @@ impl Chip8 {
         self.advance_pc(1);
     }
 
-    // Instruction: Display n-byte sprite starting at memory location I at (Vx, Vy), set VF = collision.
-    fn execute_draw(& mut self, vx: uint, vy: uint, nibble: u8) {
-        // TODO
+    // Instruction: Display n-row sprite starting at memory location I at (Vx, Vy), set VF = collision.
+    fn execute_draw(& mut self, vx: uint, vy: uint, rows: u8) {
+        let xcoord = self.v[vx] as uint;
+        let ycoord = self.v[vy] as uint;
+
+        self.v[0xF] = 0;
+        for rowidx in range(0u, rows as uint) {
+            let spriterow = self.mem[self.i as uint + rowidx];
+
+            // our representation of pixels is as bytes, but the source
+            // pixels are bitwise in memory
+            for colidx in range(0u, 8) {
+                if (spriterow & (0x80 >> colidx) > 0) {
+                    // check for collision and set VF if needed
+                    if self.gfx[colidx + xcoord + (rowidx + ycoord) * SCREEN_WIDTH] == 1 {
+                        self.v[0xF] = 1;
+                    }
+
+                    self.gfx[colidx + xcoord + (rowidx + ycoord) * SCREEN_WIDTH] ^= 1;
+                }
+            }
+        }
+
         self.advance_pc(1);
     }
 
@@ -235,19 +273,25 @@ impl Chip8 {
 
     // Instruction: I = location of sprite for digit Vx
     fn execute_setifont(& mut self, vx: uint) {
-        // TODO
+        assert!(self.v[vx] <= 0xF);
+        self.i = self.v[vx] as u16 * FONT_DIGIT_SIZE;
         self.advance_pc(1);
     }
 
     // Instruction: Store BCD representation of Vx in memory locations I, I+1, and I+2.
-    fn execute_storebin(& mut self, reg: uint) {
-        // TODO
+    fn execute_storebcd(& mut self, vx: uint) {
+        let hundreds = self.v[vx] / 100;
+        let tens = (self.v[vx] - hundreds * 100) / 10;
+        let ones = (self.v[vx] - hundreds * 100 - tens * 10);
+        self.mem[self.i as uint] = hundreds;
+        self.mem[self.i as uint + 1] = tens;
+        self.mem[self.i as uint+ 2] = ones;
         self.advance_pc(1);
     }
 
     // Instruction: Read V0 through Vx from memory starting at location I
     fn execute_storeregs(& mut self, vx: uint) {
-        for vi in range(0u, vx) {
+        for vi in range(0u, vx + 1) {
             self.mem[self.i as uint + vi] = self.v[vi];
         }
         self.advance_pc(1)
@@ -255,7 +299,7 @@ impl Chip8 {
 
     // Instruction: Store V0 through Vx in memory starting at location I
     fn execute_loadregs(& mut self, vx: uint) {
-        for vi in range(0u, vx) {
+        for vi in range(0u, vx + 1) {
             self.v[vi] = self.mem[self.i as uint + vi];
         }
         self.advance_pc(1)
@@ -263,12 +307,16 @@ impl Chip8 {
 
     // Instruction: Skip next instruction if key in Vx is pressed
     fn execute_skipifkeypress(& mut self, vx: uint) {
-        // TODO
+        assert!(self.v[vx] < KEY_COUNT as u8);
+        let instrcount = if self.key[self.v[vx] as uint] == 1 { 2 } else { 1 };
+        self.advance_pc(instrcount);
     }
 
     // Instruction: Skip next instruction if key in Vx is not pressed
     fn execute_skipifnkeypress(& mut self, vx: uint) {
-        // TODO
+        assert!(self.v[vx] < KEY_COUNT as u8);
+        let instrcount = if self.key[self.v[vx] as uint] == 0 { 2 } else { 1 };
+        self.advance_pc(instrcount);
     }
 
     // Instruction: Vx = Vy
@@ -297,33 +345,37 @@ impl Chip8 {
 
     // Instruction: Vx = Vx + Vy, VF = carry
     fn execute_add(& mut self, vx: uint, vy: uint) {
-        // TODO
+        let result = self.v[vx] as u16 + self.v[vy] as u16;
+        self.v[vx] = result as u8;
+        self.v[0xF] = if result > std::u8::MAX as u16 { 1 } else { 0 };
         self.advance_pc(1);
     }
 
     // Instruction: Vx = Vx - Vy, VF = ~borrow
     fn execute_sub(& mut self, vx: uint, vy: uint) {
-        // TODO
+        self.v[0xF] = if self.v[vy] > self.v[vx] { 0 } else { 1 };
+        self.v[vx] = self.v[vx] - self.v[vy];
         self.advance_pc(1);
     }
 
     // Instruction: Vx = Vx >> 1, VF = LSB of Vx before shifting
-    fn execute_shr(& mut self, vx: uint, vy: uint) {
-        self.v[0xF] = (vx as u8) & 1;
+    fn execute_shr(& mut self, vx: uint) {
+        self.v[0xF] = self.v[vx] & 1;
         self.v[vx] = self.v[vx] >> 1;
         self.advance_pc(1);
     }
 
     // Instruction: Vx = Vx << 1, VF = MSB of Vx before shifting
-    fn execute_shl(& mut self, vx: uint, vy: uint) {
-        self.v[0xF] = (vx as u8) >> 7;
+    fn execute_shl(& mut self, vx: uint) {
+        self.v[0xF] = self.v[vx] >> 7;
         self.v[vx] = self.v[vx] << 1;
         self.advance_pc(1);
     }
 
     // Instruction: Vx = Vy - Vx, VF = 0 if there is a borrow, 1 otherwise
     fn execute_sub_inverse(& mut self, vx: uint, vy: uint) {
-        // TODO
+        self.v[0xF] = if self.v[vx] > self.v[vy] { 0 } else { 1 };
+        self.v[vx] = self.v[vy] - self.v[vx];
         self.advance_pc(1);
     }
 
@@ -333,6 +385,8 @@ impl Chip8 {
         let vy = ((opcode & 0x00F0) >> 4) as uint;
         let byte = (opcode & 0xFF) as u8;
         let nibble = (opcode & 0xF) as u8;
+
+        // println!("Next Opcode: {:X}, Current PC: {:X}", opcode, self.pc);
 
         match opcode {
             0x00E0 => self.execute_clearscreen(),
@@ -344,6 +398,7 @@ impl Chip8 {
                 0x4 => self.execute_skipifneq(vx, byte),
                 0x5 => self.execute_skipifeq_register(vx, vy),
                 0x6 => self.execute_setregister_const(vx, byte),
+                0x7 => self.execute_addregister(vx, byte),
                 0x8 => match opcode & 0xF {
                     0x0 => self.execute_setregister_reg(vx, vy),
                     0x1 => self.execute_bitor(vx, vy),
@@ -351,12 +406,12 @@ impl Chip8 {
                     0x3 => self.execute_bitxor(vx, vy),
                     0x4 => self.execute_add(vx, vy),
                     0x5 => self.execute_sub(vx, vy),
-                    0x6 => self.execute_shr(vx, vy),
+                    0x6 => self.execute_shr(vx),
                     0x7 => self.execute_sub_inverse(vx, vy),
-                    0xE => self.execute_shl(vx, vy),
+                    0xE => self.execute_shl(vx),
                       _ => println!("invalid instruction")
                 },
-                0x9 => self.execute_addregister(vx, byte),
+                0x9 => self.execute_skipifneq_register(vx, vy), 
                 0xA => self.execute_seti(short),
                 0xB => self.execute_jumpv0(short),
                 0xC => self.execute_setrandand(vx, byte),
@@ -373,25 +428,13 @@ impl Chip8 {
                     0x18 => self.execute_setstimer(vx),
                     0x1E => self.execute_addi(vx),
                     0x29 => self.execute_setifont(vx),
-                    0x33 => self.execute_storebin(vx),
+                    0x33 => self.execute_storebcd(vx),
                     0x55 => self.execute_storeregs(vx),
-                    0x64 => self.execute_loadregs(vx),
+                    0x65 => self.execute_loadregs(vx),
                        _ => println!("invalid instruction")
                 },
                 _ => println!("invalid instruction1") 
             }
-        }
-    }
-
-    pub fn emulate_cycle(& mut self) {
-        let opcode = self.fetch_opcode();
-        self.decode_and_execute(opcode);
-
-        if self.delay_timer > 0 {
-            self.delay_timer -= 1;
-        }
-        if self.sound_timer > 0 {
-            self.sound_timer -= 1;
         }
     }
 }

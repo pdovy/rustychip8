@@ -27,12 +27,10 @@ fn main() {
         return;
     }
 
-    let mut emustate = chip8impl::Chip8 { ..Default::default() };
-    emustate.initialize();
-    if ! emustate.load_program( &romfile ) {
+    let mut emu = chip8impl::Chip8::new();
+    if ! emu.load_program( &romfile ) {
         println!("failed to load ROM file");
     }
 
-    emustate.emulate_cycle();
-    
+    emu.run();
 }
