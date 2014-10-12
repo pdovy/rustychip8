@@ -196,7 +196,7 @@ impl Chip8 {
     }
 
     fn draw_screen(&mut self, screen: &mut sdl::video::Surface) {
-        let pixelsize = 4 as u16;
+        let pixelsize = 8 as u16;
         let white = sdl::video::RGB(0xFF, 0xFF, 0xFF);
         let black = sdl::video::RGB(0, 0, 0);
 

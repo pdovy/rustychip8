@@ -33,7 +33,7 @@ fn main() {
     sdl::wm::set_caption("RustyChip8", "");
 
     let mut screen = match sdl::video::set_video_mode(
-        800, 600, 32, [sdl::video::HWSurface], [sdl::video::DoubleBuf])
+        640, 320, 32, [sdl::video::HWSurface], [sdl::video::DoubleBuf])
     {
         Ok(screen) => screen,
         Err(err) => fail!("failed to set video mode: {}", err)
