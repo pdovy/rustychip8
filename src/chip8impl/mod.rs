@@ -1,4 +1,5 @@
 extern crate std;
+extern crate time;
 extern crate sdl;
 
 use std::default::Default;
@@ -7,7 +8,8 @@ use std::io::File;
 use std::rand;
 use std::io::fs::PathExtensions;
 use sdl::video::Surface;
-use sdl::video::Color;
+use std::io::Timer;
+use std::time::Duration;
 
 #[cfg(test)]
 mod tests;
@@ -21,7 +23,7 @@ const KEY_COUNT:       uint = 16;
 const FONTSET_SIZE:    uint = 80;
 const FONT_DIGIT_SIZE: u16  = 5;
 
-static fontset : [u8, ..FONTSET_SIZE] =
+static FONTSET : [u8, ..FONTSET_SIZE] =
     [0xF0, 0x90, 0x90, 0x90, 0xF0,  // 0
      0x20, 0x60, 0x20, 0x20, 0x70,  // 1
      0xF0, 0x10, 0xF0, 0x80, 0xF0,  // 2
@@ -76,7 +78,7 @@ impl Chip8 {
 
     pub fn new() -> Chip8 {
         let mut rv = Chip8 { ..Default::default() };
-        rv.mem.copy_from( fontset );
+        rv.mem.clone_from_slice(FONTSET);
         return rv;
     }
 
@@ -93,16 +95,21 @@ impl Chip8 {
                 if data.len() > (0xFFF - 0x200) {
                     return false;
                 }
-                let dst = self.mem.mut_slice(0x200, 0x200 + data.len());
+                let dst = self.mem.slice_mut(0x200, 0x200 + data.len());
                 bytes::copy_memory(dst, data.as_slice());
                 true
             },
-            Err(e) => { false }
+            _ => { false }
         };
     }
 
     pub fn run(& mut self, screen: &mut sdl::video::Surface ) {
+        let mut timer = Timer::new().unwrap();
+        let target_cycle_duration_ms = (1000.0f64 / 120.0f64) as u64;
+
         'mainloop : loop {
+            let cycle_start = time::precise_time_ns();
+
             let opcode = self.fetch_opcode();
             self.decode_and_execute(opcode);
 
@@ -110,13 +117,13 @@ impl Chip8 {
                 self.delay_timer -= 1;
             }
             if self.sound_timer > 0 {
-                if (self.sound_timer == 1) {
+                if self.sound_timer == 1 {
                     // TODO emit beep
                 }
                 self.sound_timer -= 1;
             }
 
-            if (self.gfx_update) {
+            if self.gfx_update {
                 self.draw_screen(screen);
                 screen.flip();
                 self.gfx_update = false;
@@ -126,13 +133,18 @@ impl Chip8 {
                 match sdl::event::poll_event() {
                     sdl::event::QuitEvent => break 'mainloop,
                     sdl::event::NoEvent => break 'eventloop,
-                    sdl::event::KeyEvent(k, _, _, _) =>
+                    sdl::event::KeyEvent(k, pressed, _, _) =>
                         match k {
                             sdl::event::EscapeKey => break 'mainloop,
-                            _ => self.handle_keypress(k),
+                            _ => self.handle_keypress(k, pressed),
                         },
                     _ => {}
                 }
+            }
+
+            let cycle_duration_ms = (time::precise_time_ns() - cycle_start) / 1000000;
+            if cycle_duration_ms < target_cycle_duration_ms {
+                timer.sleep(Duration::milliseconds((target_cycle_duration_ms - cycle_duration_ms) as i64));
             }
         }
     }
@@ -141,7 +153,7 @@ impl Chip8 {
 // Chip8 internals
 impl Chip8 {
 
-    fn handle_keypress(&mut self, key: sdl::event::Key) {
+    fn map_key(key: sdl::event::Key) -> Option<u8> {
         /*
         Keypad                   Keyboard
         +-+-+-+-+                +-+-+-+-+
@@ -155,7 +167,7 @@ impl Chip8 {
         +-+-+-+-+                +-+-+-+-+
         */
 
-        let mappedval = match key {
+        return match key {
             sdl::event::Num1Key => Some(0x1),
             sdl::event::Num2Key => Some(0x2),
             sdl::event::Num3Key => Some(0x3),
@@ -173,10 +185,12 @@ impl Chip8 {
             sdl::event::CKey    => Some(0xB),
             sdl::event::VKey    => Some(0xF),
             _ => None
-        };
+        }
+    }
 
-        match mappedval {
-            Some(k) => self.key[k] = 1,
+    fn handle_keypress(&mut self, key: sdl::event::Key, pressed: bool) {
+        match Chip8::map_key(key) {
+            Some(k) => self.key[k as uint] = if pressed { 1u8 } else { 0u8 },
             None => {}
         }
     }
@@ -186,12 +200,12 @@ impl Chip8 {
         let white = sdl::video::RGB(0xFF, 0xFF, 0xFF);
         let black = sdl::video::RGB(0, 0, 0);
 
-        for row in range(0u, SCREEN_WIDTH) {
-            for col in range(0u, SCREEN_HEIGHT) {
-                let color = if self.gfx[col + row * SCREEN_HEIGHT] == 1 { white } else { black };
+        for row in range(0u, SCREEN_HEIGHT) {
+            for col in range(0u, SCREEN_WIDTH) {
+                let color = if self.gfx[col + row * SCREEN_WIDTH] == 1 { white } else { black };
                 screen.fill_rect(Some(sdl::Rect {
-                    x: (row as i16) * (pixelsize as i16),
-                    y: (col as i16) * (pixelsize as i16),
+                    x: (col as i16) * (pixelsize as i16),
+                    y: (row as i16) * (pixelsize as i16),
                     w: pixelsize,
                     h: pixelsize
                 }), color);
@@ -205,7 +219,7 @@ impl Chip8 {
     }
 
     fn advance_pc(& mut self, instruction_count: u16) {
-        self.pc += (instruction_count * 2);
+        self.pc += instruction_count * 2;
     }
 
     fn stack_push(& mut self, val: u16) {
@@ -273,11 +287,14 @@ impl Chip8 {
     // Instruction: Clear Display
     fn execute_clearscreen(& mut self) {
         self.gfx = [0, ..SCREEN_WIDTH * SCREEN_HEIGHT];
+        self.gfx_update = true;
+        self.advance_pc(1);
     }
 
     // Instruction: Return from current call
     fn execute_return(& mut self) {
         self.pc = self.stack_pop();
+        self.advance_pc(1);
     }
 
     // Instruction: I = val
@@ -309,7 +326,7 @@ impl Chip8 {
             // our representation of pixels is as bytes, but the source
             // pixels are bitwise in memory
             for colidx in range(0u, 8) {
-                if (spriterow & (0x80 >> colidx) > 0) {
+                if spriterow & (0x80 >> colidx) > 0 {
                     // check for collision and set VF if needed
                     if self.gfx[colidx + xcoord + (rowidx + ycoord) * SCREEN_WIDTH] == 1 {
                         self.v[0xF] = 1;
@@ -332,7 +349,25 @@ impl Chip8 {
 
     // Instruction: Wait for key press, store key in Vx
     fn execute_waitkey(& mut self, vx: uint) {
-        // TODO
+        'waitloop : loop {
+            match sdl::event::poll_event() {
+                sdl::event::NoEvent => {},
+                sdl::event::KeyEvent(k, pressed, _, _) => {
+                    self.handle_keypress(k, pressed);
+                    if pressed {
+                        match Chip8::map_key(k) {
+                            Some(mkey) => {
+                                self.v[vx] = mkey;
+                            },
+                            None => {}
+                        }
+                        break 'waitloop;
+                    }
+                },
+                _ => ()
+            }
+        }
+
         self.advance_pc(1);
     }
 
@@ -365,7 +400,7 @@ impl Chip8 {
     fn execute_storebcd(& mut self, vx: uint) {
         let hundreds = self.v[vx] / 100;
         let tens = (self.v[vx] - hundreds * 100) / 10;
-        let ones = (self.v[vx] - hundreds * 100 - tens * 10);
+        let ones = self.v[vx] - hundreds * 100 - tens * 10;
         self.mem[self.i as uint] = hundreds;
         self.mem[self.i as uint + 1] = tens;
         self.mem[self.i as uint+ 2] = ones;
@@ -469,8 +504,6 @@ impl Chip8 {
         let byte = (opcode & 0xFF) as u8;
         let nibble = (opcode & 0xF) as u8;
 
-        // println!("Next Opcode: {:X}, Current PC: {:X}", opcode, self.pc);
-
         match opcode {
             0x00E0 => self.execute_clearscreen(),
             0x00EE => self.execute_return(),
@@ -519,5 +552,7 @@ impl Chip8 {
                 _ => println!("invalid instruction1") 
             }
         }
+
+        // println!("{:X}, PC: {:X}, I: {:X}", opcode, self.pc, self.i);
     }
 }

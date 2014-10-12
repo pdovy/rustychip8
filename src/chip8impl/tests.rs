@@ -131,10 +131,10 @@ fn test_instr_return() {
     emu.execute_call(0xDEF);
 
     emu.execute_return();
-    assert_eq!(emu.pc, 0xABC);
+    assert_eq!(emu.pc, 0xABC + 2);
 
     emu.execute_return();
-    assert_eq!(emu.pc, pcstart);
+    assert_eq!(emu.pc, pcstart + 2);
 }
 
 #[test]
