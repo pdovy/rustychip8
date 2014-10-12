@@ -1,7 +1,7 @@
 Rust Chip-8 Emulator
 ==========
 
-A simple Chip-8 emulator written in Rust.  I was interested in learning Rust and thought a simple emulator would be a great place to start digging into the language.
+A simple Chip-8 emulator, done as a weekend project to learn Rust.
 
 ![Space Invaders](screenshots/invaders.png)
 
@@ -11,17 +11,31 @@ Chip-8 was never a real in-hardware system, instead it's a simple programming la
 
 See [CowGod's Chip-8 Technical Reference](http://devernay.free.fr/hacks/chip8/C8TECH10.HTM) and [Chip-8 on Wikipedia](http://en.wikipedia.org/wiki/CHIP-8) for more details.
 
-## Building and Running
+## Building
 
 This is easy to build using [Cargo](cargo.io), Rust's package manager.  Just install Cargo as per the instructions on the website, clone the repo and run:
 
     cargo build --release
     
-Note that Rust is still in a pre-1.0 state and breaking changes may be made that will cause the code in this repo not to compile.  You can safely assume that it built against the nightly Rust build on the date of the last commit.  If you come across anything broken, I'll happily accept PRs.
+Note that Rust is still in a pre-1.0 state and breaking changes may be made that will cause the code in this repo not to compile.  You can safely assume that it built against the nightly Rust build on the date of the last commit.  If you come across anything broken, I'll happily accept PRs.  Additionally while this _should_ work on Windows, it's only been tested on Ubuntu Linux 14.04.
+
+You can also run the test suite with:
+
+    cargo test
+
+## Running
 
 To run, you'll need to first source some Chip-8 ROMs - there are quite a few available in the "program pack" hosted by [Chip8.com](http://chip8.com/).  Then just specify the path to your ROM on the command line:
 
     target/rustychip8 -f ~/chip8roms/PONG
+    
+Once it's up and running you can interact with the program via the Chip-8 keypad, which is mapped onto a normal QWERTY keyboard as shown below:
+
+| 1 | 2 | 3 | C |    | 1 | 2 | 3 | 4 |
+|---|---|---|---|----|---|---|---|---|
+| 4 | 5 | 6 | D | to | Q | W | E | R |
+| 7 | 8 | 9 | E |    | A | S | D | F |
+| A | 0 | B | F |    | Z | X | C | V |
     
 ## Task List
 
