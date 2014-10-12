@@ -1,7 +1,9 @@
 Rust Chip-8 Emulator
 ==========
 
-A simple Chip-8 emulator written in Rust.  I was interested in learning Rust and thought a simple emulator would be a great place to start digging into the language.  This is still a work-in-progress and isn't fully functional yet.
+A simple Chip-8 emulator written in Rust.  I was interested in learning Rust and thought a simple emulator would be a great place to start digging into the language.
+
+![Space Invaders](screenshots/invaders.png)
 
 ## What is Chip-8?
 
@@ -22,8 +24,8 @@ To run, you'll need to first source some Chip-8 ROMs - there are quite a few ava
 ## Task List
 
 * [x] Implement main fetch/decode/execute loop with support for all instructions.
-* [ ] Add rendering of the graphics buffer
-* [ ] Add keyboard input
+* [x] Add rendering of the graphics buffer
+* [x] Add keyboard input
 * [ ] Testing with various public domain ROMs
 
 
