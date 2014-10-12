@@ -1,10 +1,13 @@
 extern crate std;
+extern crate sdl;
 
 use std::default::Default;
 use std::slice::bytes;
 use std::io::File;
 use std::rand;
 use std::io::fs::PathExtensions;
+use sdl::video::Surface;
+use sdl::video::Color;
 
 #[cfg(test)]
 mod tests;
@@ -46,7 +49,8 @@ pub struct Chip8 {
     mem         : [u8, ..MEMORY_SIZE],
     gfx         : [u8, ..SCREEN_WIDTH * SCREEN_HEIGHT],
     stack       : [u16, ..STACK_SIZE],
-    key         : [u8, ..KEY_COUNT]
+    key         : [u8, ..KEY_COUNT],
+    gfx_update  : bool
 }
 
 impl Default for Chip8 {
@@ -61,7 +65,8 @@ impl Default for Chip8 {
             mem         : [0, ..MEMORY_SIZE],
             gfx         : [0, ..SCREEN_WIDTH * SCREEN_HEIGHT],
             stack       : [0, ..STACK_SIZE],
-            key         : [0, ..KEY_COUNT]
+            key         : [0, ..KEY_COUNT],
+            gfx_update  : false
         }
     }
 }
@@ -96,8 +101,8 @@ impl Chip8 {
         };
     }
 
-    pub fn run(& mut self) {
-        while true {
+    pub fn run(& mut self, screen: &mut sdl::video::Surface ) {
+        'mainloop : loop {
             let opcode = self.fetch_opcode();
             self.decode_and_execute(opcode);
 
@@ -110,12 +115,53 @@ impl Chip8 {
                 }
                 self.sound_timer -= 1;
             }
+
+            if (self.gfx_update) {
+                self.draw_screen(screen);
+                screen.flip();
+                self.gfx_update = false;
+            }
+
+            'eventloop : loop {
+                match sdl::event::poll_event() {
+                    sdl::event::QuitEvent => break 'mainloop,
+                    sdl::event::NoEvent => break 'eventloop,
+                    sdl::event::KeyEvent(k, _, _, _) =>
+                        match k {
+                            sdl::event::EscapeKey => break 'mainloop,
+                            _ => self.handle_keypress(k),
+                        },
+                    _ => {}
+                }
+            }
         }
     }
 }
 
 // Chip8 internals
 impl Chip8 {
+
+    fn handle_keypress(&mut self, key: sdl::event::Key) {
+        
+    }
+
+    fn draw_screen(&mut self, screen: &mut sdl::video::Surface) {
+        let pixelsize = 4 as u16;
+        let white = sdl::video::RGB(0xFF, 0xFF, 0xFF);
+        let black = sdl::video::RGB(0, 0, 0);
+
+        for row in range(0u, SCREEN_WIDTH) {
+            for col in range(0u, SCREEN_HEIGHT) {
+                let color = if self.gfx[col + row * SCREEN_HEIGHT] == 1 { white } else { black };
+                screen.fill_rect(Some(sdl::Rect {
+                    x: (row as i16) * (pixelsize as i16),
+                    y: (col as i16) * (pixelsize as i16),
+                    w: pixelsize,
+                    h: pixelsize
+                }), color);
+            }
+        }
+    }
 
     fn fetch_opcode(&self) -> u16 {
         ( self.mem[ self.pc as uint ] as u16 << 8 ) |
@@ -238,6 +284,7 @@ impl Chip8 {
             }
         }
 
+        self.gfx_update = true;
         self.advance_pc(1);
     }
 

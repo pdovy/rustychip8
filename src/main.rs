@@ -1,4 +1,5 @@
 extern crate getopts;
+extern crate sdl;
 
 use std::default::Default;
 use std::os;
@@ -27,10 +28,24 @@ fn main() {
         return;
     }
 
+    // initialize SDL for graphical output and keyboard input
+    sdl::init([sdl::InitVideo]);
+    sdl::wm::set_caption("RustyChip8", "");
+
+    let mut screen = match sdl::video::set_video_mode(
+        800, 600, 32, [sdl::video::HWSurface], [sdl::video::DoubleBuf])
+    {
+        Ok(screen) => screen,
+        Err(err) => fail!("failed to set video mode: {}", err)
+    };
+
+    // fire up the emulator
     let mut emu = chip8impl::Chip8::new();
     if ! emu.load_program( &romfile ) {
         println!("failed to load ROM file");
     }
 
-    emu.run();
+    emu.run(&mut screen);
+
+    sdl::quit();
 }

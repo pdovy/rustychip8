@@ -3,3 +3,7 @@
 name = "rustychip8"
 version = "0.0.1"
 authors = ["pdovy"]
+
+[dependencies.sdl]
+
+git = "https://github.com/brson/rust-sdl.git"
