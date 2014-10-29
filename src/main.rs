@@ -1,7 +1,6 @@
 extern crate getopts;
 extern crate sdl;
 
-use std::default::Default;
 use std::os;
 use getopts::{optopt,optflag,getopts};
 
