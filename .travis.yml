@@ -1,0 +1,14 @@
+language: rust
+
+notifications:
+  email:
+    on_success: never
+    on_failure: always
+
+install:
+  - sudo apt-get update
+
+script:
+  - cargo build
+  - cargo build --release
+  - cargo test
