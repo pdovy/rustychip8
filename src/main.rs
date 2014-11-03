@@ -16,7 +16,7 @@ fn main() {
     ];
     let matches = match getopts(args.tail(), opts) {
         Ok(m) => { m },
-        Err(f) => { fail!(f.to_string()) }
+        Err(f) => { panic!(f.to_string()) }
     };
     let romfile = match matches.opt_str("f") {
         Some(f) => { f },
@@ -35,7 +35,7 @@ fn main() {
         640, 320, 32, [sdl::video::HWSurface], [sdl::video::DoubleBuf])
     {
         Ok(screen) => screen,
-        Err(err) => fail!("failed to set video mode: {}", err)
+        Err(err) => panic!("failed to set video mode: {}", err)
     };
 
     // fire up the emulator
