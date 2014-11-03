@@ -1,3 +1,5 @@
+![http://www.rust-ci.org/pdovy/rustychip8](https://travis-ci.org/pdovy/rustychip8.svg?branch=master)
+
 Rust Chip-8 Emulator
 ==========
 
