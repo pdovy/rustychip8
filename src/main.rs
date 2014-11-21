@@ -14,7 +14,7 @@ fn main() {
         optopt("f", "ROM filename", "ROM file to load", "FILENAME"),
         optflag("h", "help", "print this help")
     ];
-    let matches = match getopts(args.tail(), opts) {
+    let matches = match getopts(args.tail(), &opts) {
         Ok(m) => { m },
         Err(f) => { panic!(f.to_string()) }
     };
@@ -23,16 +23,16 @@ fn main() {
         None    => { String::new() }
     };
     if matches.opt_present("h") || romfile.len() == 0 {
-        println!("{}", getopts::short_usage(program.as_slice(), opts));
+        println!("{}", getopts::short_usage(program.as_slice(), &opts));
         return;
     }
 
     // initialize SDL for graphical output and keyboard input
-    sdl::init([sdl::InitVideo]);
+    sdl::init(&[sdl::InitFlag::Video]);
     sdl::wm::set_caption("RustyChip8", "");
 
     let mut screen = match sdl::video::set_video_mode(
-        640, 320, 32, [sdl::video::HWSurface], [sdl::video::DoubleBuf])
+        640, 320, 32, &[sdl::video::HWSurface], &[sdl::video::DoubleBuf])
     {
         Ok(screen) => screen,
         Err(err) => panic!("failed to set video mode: {}", err)

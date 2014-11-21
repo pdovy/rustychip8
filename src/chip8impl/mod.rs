@@ -78,7 +78,7 @@ impl Chip8 {
 
     pub fn new() -> Chip8 {
         let mut rv = Chip8 { ..Default::default() };
-        rv.mem.clone_from_slice(FONTSET);
+        rv.mem.clone_from_slice(&FONTSET);
         return rv;
     }
 
@@ -131,11 +131,11 @@ impl Chip8 {
 
             'eventloop : loop {
                 match sdl::event::poll_event() {
-                    sdl::event::QuitEvent => break 'mainloop,
-                    sdl::event::NoEvent => break 'eventloop,
-                    sdl::event::KeyEvent(k, pressed, _, _) =>
+                    sdl::event::Event::Quit => break 'mainloop,
+                    sdl::event::Event::None => break 'eventloop,
+                    sdl::event::Event::Key(k, pressed, _, _) =>
                         match k {
-                            sdl::event::EscapeKey => break 'mainloop,
+                            sdl::event::Key::Escape => break 'mainloop,
                             _ => self.handle_keypress(k, pressed),
                         },
                     _ => {}
@@ -168,22 +168,22 @@ impl Chip8 {
         */
 
         return match key {
-            sdl::event::Num1Key => Some(0x1),
-            sdl::event::Num2Key => Some(0x2),
-            sdl::event::Num3Key => Some(0x3),
-            sdl::event::Num4Key => Some(0xC),
-            sdl::event::QKey    => Some(0x4),
-            sdl::event::WKey    => Some(0x5),
-            sdl::event::EKey    => Some(0x6),
-            sdl::event::RKey    => Some(0xD),
-            sdl::event::AKey    => Some(0x7),
-            sdl::event::SKey    => Some(0x8),
-            sdl::event::DKey    => Some(0x9),
-            sdl::event::FKey    => Some(0xE),
-            sdl::event::ZKey    => Some(0xA),
-            sdl::event::XKey    => Some(0x0),
-            sdl::event::CKey    => Some(0xB),
-            sdl::event::VKey    => Some(0xF),
+            sdl::event::Key::Num1 => Some(0x1),
+            sdl::event::Key::Num2 => Some(0x2),
+            sdl::event::Key::Num3 => Some(0x3),
+            sdl::event::Key::Num4 => Some(0xC),
+            sdl::event::Key::Q    => Some(0x4),
+            sdl::event::Key::W    => Some(0x5),
+            sdl::event::Key::E    => Some(0x6),
+            sdl::event::Key::R    => Some(0xD),
+            sdl::event::Key::A    => Some(0x7),
+            sdl::event::Key::S    => Some(0x8),
+            sdl::event::Key::D    => Some(0x9),
+            sdl::event::Key::F    => Some(0xE),
+            sdl::event::Key::Z    => Some(0xA),
+            sdl::event::Key::X    => Some(0x0),
+            sdl::event::Key::C    => Some(0xB),
+            sdl::event::Key::V    => Some(0xF),
             _ => None
         }
     }
@@ -351,8 +351,8 @@ impl Chip8 {
     fn execute_waitkey(& mut self, vx: uint) {
         'waitloop : loop {
             match sdl::event::poll_event() {
-                sdl::event::NoEvent => {},
-                sdl::event::KeyEvent(k, pressed, _, _) => {
+                sdl::event::Event::None => {},
+                sdl::event::Event::Key(k, pressed, _, _) => {
                     self.handle_keypress(k, pressed);
                     if pressed {
                         match Chip8::map_key(k) {
