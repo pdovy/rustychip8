@@ -85,8 +85,8 @@ impl Chip8 {
     pub fn load_program(& mut self, filename: &String) -> bool {
         let path = Path::new(filename.as_slice());
         if !path.exists() {
-            println!("program file {} does not exist", filename)
-            return false
+            println!("program file {} does not exist", filename);
+            return false;
         }
 
         let mut file = File::open(&path);
