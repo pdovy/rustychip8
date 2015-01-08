@@ -115,7 +115,7 @@ fn test_instr_addregister() {
 #[test]
 fn test_instr_clearscreen() {
     let mut emu = Chip8::new();
-    emu.gfx = [1u8, ..64 * 32];
+    emu.gfx = [1u8; 64 * 32];
     emu.execute_clearscreen();
     for idx in range(0u, 64 * 32) {
         assert_eq!(emu.gfx[idx], 0);
