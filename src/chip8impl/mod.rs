@@ -22,8 +22,9 @@ const SCREEN_HEIGHT:   uint = 32;
 const KEY_COUNT:       uint = 16;
 const FONTSET_SIZE:    uint = 80;
 const FONT_DIGIT_SIZE: u16  = 5;
+const PIXEL_COUNT:     uint = SCREEN_WIDTH * SCREEN_HEIGHT;
 
-static FONTSET : [u8, ..FONTSET_SIZE] =
+static FONTSET : [u8; FONTSET_SIZE] =
     [0xF0, 0x90, 0x90, 0x90, 0xF0,  // 0
      0x20, 0x60, 0x20, 0x20, 0x70,  // 1
      0xF0, 0x10, 0xF0, 0x80, 0xF0,  // 2
@@ -47,11 +48,11 @@ pub struct Chip8 {
     delay_timer : u8,
     sound_timer : u8,
     sp          : u8,
-    v           : [u8, ..REGISTER_COUNT],
-    mem         : [u8, ..MEMORY_SIZE],
-    gfx         : [u8, ..SCREEN_WIDTH * SCREEN_HEIGHT],
-    stack       : [u16, ..STACK_SIZE],
-    key         : [u8, ..KEY_COUNT],
+    v           : [u8; REGISTER_COUNT],
+    mem         : [u8; MEMORY_SIZE],
+    gfx         : [u8; PIXEL_COUNT],
+    stack       : [u16; STACK_SIZE],
+    key         : [u8; KEY_COUNT],
     gfx_update  : bool
 }
 
@@ -63,11 +64,11 @@ impl Default for Chip8 {
             delay_timer : 0,
             sound_timer : 0,
             sp          : 0,
-            v           : [0, ..REGISTER_COUNT],
-            mem         : [0, ..MEMORY_SIZE],
-            gfx         : [0, ..SCREEN_WIDTH * SCREEN_HEIGHT],
-            stack       : [0, ..STACK_SIZE],
-            key         : [0, ..KEY_COUNT],
+            v           : [0; REGISTER_COUNT],
+            mem         : [0; MEMORY_SIZE],
+            gfx         : [0; PIXEL_COUNT],
+            stack       : [0; STACK_SIZE],
+            key         : [0; KEY_COUNT],
             gfx_update  : false
         }
     }
@@ -214,7 +215,7 @@ impl Chip8 {
     }
 
     fn fetch_opcode(&self) -> u16 {
-        ( self.mem[ self.pc as uint ] as u16 << 8 ) |
+        ( ( self.mem[ self.pc as uint ] as u16 ) << 8 ) |
         self.mem[ self.pc as uint + 1 ] as u16
     }
 
@@ -286,7 +287,7 @@ impl Chip8 {
 
     // Instruction: Clear Display
     fn execute_clearscreen(& mut self) {
-        self.gfx = [0, ..SCREEN_WIDTH * SCREEN_HEIGHT];
+        self.gfx = [0; PIXEL_COUNT];
         self.gfx_update = true;
         self.advance_pc(1);
     }
